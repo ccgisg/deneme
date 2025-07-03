@@ -1,4 +1,4 @@
-// Veritabanı Sınıfı (Tam implementasyon)
+// VERİTABANI SINIFI (Tüm metodlarla birlikte)
 class Database {
     constructor() {
         this.dbName = 'isyeriHekimligiDB';
@@ -17,24 +17,20 @@ class Database {
 
             request.onsuccess = (event) => {
                 this.db = event.target.result;
+                console.log("Veritabanı başarıyla açıldı");
                 resolve(this.db);
             };
 
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
+                console.log("Veritabanı upgrade ediliyor");
                 
                 if (!db.objectStoreNames.contains('workplaces')) {
                     db.createObjectStore('workplaces', { keyPath: 'id' });
                 }
                 
-                let employeeStore;
                 if (!db.objectStoreNames.contains('employees')) {
-                    employeeStore = db.createObjectStore('employees', { keyPath: 'id' });
-                } else {
-                    employeeStore = event.target.transaction.objectStore('employees');
-                }
-                
-                if (!employeeStore.indexNames.contains('workplaceId')) {
+                    const employeeStore = db.createObjectStore('employees', { keyPath: 'id' });
                     employeeStore.createIndex('workplaceId', 'workplaceId', { unique: false });
                 }
 
@@ -44,18 +40,28 @@ class Database {
                 }
 
                 if (!db.objectStoreNames.contains('ek2Forms')) {
-                    const ek2FormsStore = db.createObjectStore('ek2Forms', { keyPath: 'employeeId' });
+                    db.createObjectStore('ek2Forms', { keyPath: 'employeeId' });
                 }
             };
         });
     }
 
     // Diğer veritabanı metodları...
+    async getWorkplaces() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['workplaces'], 'readonly');
+            const store = transaction.objectStore('workplaces');
+            const request = store.getAll();
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
 }
 
-// Uygulama State'i
+// UYGULAMA STATE'İ
 const appState = {
-    db: new Database(),
+    db: null, // Hemen örnekleme yapmıyoruz
     currentUser: null,
     currentWorkplace: null,
     currentEmployees: [],
@@ -65,9 +71,9 @@ const appState = {
     isEditingEmployee: false
 };
 
-// Yardımcı Fonksiyonlar
-function showError(message) {
-    const errorElement = document.getElementById('loginError');
+// YARDIMCI FONKSİYONLAR
+function showError(message, elementId = 'loginError') {
+    const errorElement = document.getElementById(elementId);
     if (errorElement) {
         errorElement.textContent = message;
         errorElement.style.display = 'block';
@@ -76,33 +82,42 @@ function showError(message) {
     }
 }
 
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-}
-
-// Giriş İşlemleri
-function initLogin() {
-    const loginBtn = document.getElementById('loginBtn');
-    const passwordInput = document.getElementById('password');
-    
-    if (loginBtn && passwordInput) {
-        loginBtn.addEventListener('click', login);
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') login();
-        });
+function hideError(elementId = 'loginError') {
+    const errorElement = document.getElementById(elementId);
+    if (errorElement) {
+        errorElement.style.display = 'none';
     }
 }
 
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('tr-TR');
+}
+
+// MODAL FONKSİYONLARI
+function showEk2Modal(employeeIndex) {
+    console.log("EK-2 Modal gösteriliyor:", employeeIndex);
+    // Modal içeriğini buraya ekleyin
+}
+
+function showFileUploadModal(employeeIndex) {
+    console.log("Dosya Yükleme Modalı gösteriliyor:", employeeIndex);
+    // Modal içeriğini buraya ekleyin
+}
+
+function showFileListModal(employeeIndex) {
+    console.log("Dosya Listesi Modalı gösteriliyor:", employeeIndex);
+    // Modal içeriğini buraya ekleyin
+}
+
+// GİRİŞ İŞLEMLERİ
 async function login() {
     try {
-        const username = document.getElementById('username')?.value.trim();
-        const password = document.getElementById('password')?.value.trim();
-        
+        hideError();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+
         if (!username || !password) {
             throw new Error('Kullanıcı adı ve şifre gereklidir');
         }
@@ -116,85 +131,55 @@ async function login() {
             throw new Error('Geçersiz kullanıcı adı veya şifre!');
         }
     } catch (error) {
-        console.error('Giriş hatası:', error);
         showError(error.message);
+        console.error('Giriş hatası:', error);
     }
 }
 
 function showMainView() {
-    const loginScreen = document.getElementById('loginScreen');
-    const mainApp = document.getElementById('mainApp');
-    const welcomeText = document.getElementById('welcomeText');
-    
-    if (loginScreen && mainApp && welcomeText) {
-        loginScreen.style.display = 'none';
-        mainApp.style.display = 'block';
-        welcomeText.textContent = `Hoş geldiniz, ${appState.currentUser?.username || ''}`;
-    }
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('welcomeText').textContent = 
+        `Hoş geldiniz, ${appState.currentUser.username}`;
 }
 
-// EK-2 Form İşlemleri
-function showEk2Modal(employeeIndex) {
-    if (employeeIndex === null || !appState.currentEmployees[employeeIndex]) return;
-    console.log('EK-2 modal gösteriliyor:', employeeIndex);
-    // Modal içeriğini burada oluşturun
-}
-
-function showFileUploadModal(employeeIndex) {
-    if (employeeIndex === null || !appState.currentEmployees[employeeIndex]) return;
-    console.log('Dosya yükleme modalı gösteriliyor:', employeeIndex);
-    // Modal içeriğini burada oluşturun
-}
-
-function showFileListModal(employeeIndex) {
-    if (employeeIndex === null || !appState.currentEmployees[employeeIndex]) return;
-    console.log('Dosya listesi modalı gösteriliyor:', employeeIndex);
-    // Modal içeriğini burada oluşturun
-}
-
-// Diğer fonksiyonlar
+// İŞYERİ İŞLEMLERİ
 async function loadWorkplaces() {
     try {
         const workplaces = await appState.db.getWorkplaces();
-        console.log('İşyerleri yüklendi:', workplaces);
+        console.log("İşyerleri yüklendi:", workplaces);
         // İşyerlerini görüntüleme kodunu buraya ekleyin
     } catch (error) {
-        console.error('İşyerleri yüklenirken hata:', error);
-        showError('İşyerleri yüklenirken hata oluştu');
+        showError('İşyerleri yüklenirken hata oluştu', 'workplaceError');
+        console.error('İşyerleri yükleme hatası:', error);
     }
 }
 
-function checkAuth() {
-    if (localStorage.getItem('authToken')) {
-        appState.currentUser = { username: 'hekim', role: 'doctor' };
-        showMainView();
-        loadWorkplaces();
-    }
-}
-
-// Sayfa Yüklendiğinde
-document.addEventListener('DOMContentLoaded', async () => {
+// UYGULAMA BAŞLATMA
+async function initializeApp() {
     try {
-        // Önce DOM elementlerinin yüklendiğinden emin ol
-        if (!document.getElementById('loginBtn') || !document.getElementById('password')) {
-            throw new Error('Gerekli DOM elementleri bulunamadı');
-        }
-
-        // Veritabanını başlat
+        // Veritabanı başlat
+        appState.db = new Database();
         await appState.db.initDB();
         
-        // Diğer başlatma fonksiyonları
-        initLogin();
-        checkAuth();
-        
-        console.log('Uygulama başarıyla başlatıldı');
-    } catch (error) {
-        console.error('Başlatma hatası:', error);
-        showError('Uygulama başlatılırken bir hata oluştu: ' + error.message);
-    }
-});
+        // Giriş dinleyicilerini ayarla
+        document.getElementById('loginBtn').addEventListener('click', login);
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') login();
+        });
 
-// Global fonksiyonlar
-window.showEk2Modal = showEk2Modal;
-window.showFileUploadModal = showFileUploadModal;
-window.showFileListModal = showFileListModal;
+        // Oturum kontrolü
+        if (localStorage.getItem('authToken')) {
+            appState.currentUser = { username: 'hekim', role: 'doctor' };
+            showMainView();
+            await loadWorkplaces();
+        }
+        
+        console.log("Uygulama başarıyla başlatıldı");
+    } catch (error) {
+        showError('Uygulama başlatılırken hata oluştu');
+        console.error('Başlatma hatası:', error);
+    }
+}
+
+//
