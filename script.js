@@ -1,4 +1,4 @@
-// VERİTABANI SINIFI (Tüm metodlarla birlikte)
+// TAM VERİTABANI SINIFI
 class Database {
     constructor() {
         this.dbName = 'isyeriHekimligiDB';
@@ -46,22 +46,65 @@ class Database {
         });
     }
 
-    // Diğer veritabanı metodları...
+    // İŞYERİ METODLARI
     async getWorkplaces() {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['workplaces'], 'readonly');
             const store = transaction.objectStore('workplaces');
             const request = store.getAll();
 
+            request.onsuccess = () => {
+                console.log("İşyerleri başarıyla alındı");
+                resolve(request.result || []);
+            };
+            request.onerror = (event) => {
+                console.error("İşyerleri alınırken hata:", event.target.error);
+                reject(event.target.error);
+            };
+        });
+    }
+
+    async addWorkplace(workplace) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['workplaces'], 'readwrite');
+            const store = transaction.objectStore('workplaces');
+            const request = store.add(workplace);
+
             request.onsuccess = () => resolve(request.result);
             request.onerror = (event) => reject(event.target.error);
         });
     }
+
+    // ÇALIŞAN METODLARI
+    async getEmployees(workplaceId) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['employees'], 'readonly');
+            const store = transaction.objectStore('employees');
+            const index = store.index('workplaceId');
+            const request = index.getAll(workplaceId);
+
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
+
+    async addEmployee(employee) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['employees'], 'readwrite');
+            const store = transaction.objectStore('employees');
+            const request = store.add(employee);
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
+
+    // DİĞER VERİTABANI METODLARI...
 }
 
 // UYGULAMA STATE'İ
 const appState = {
-    db: null, // Hemen örnekleme yapmıyoruz
+    db: new Database(), // Hemen örnekleme yapıyoruz
     currentUser: null,
     currentWorkplace: null,
     currentEmployees: [],
@@ -98,17 +141,23 @@ function formatDate(dateString) {
 // MODAL FONKSİYONLARI
 function showEk2Modal(employeeIndex) {
     console.log("EK-2 Modal gösteriliyor:", employeeIndex);
-    // Modal içeriğini buraya ekleyin
+    // Modal işlevselliğini buraya ekleyin
+    const modal = new bootstrap.Modal(document.getElementById('ek2Modal'));
+    modal.show();
 }
 
 function showFileUploadModal(employeeIndex) {
     console.log("Dosya Yükleme Modalı gösteriliyor:", employeeIndex);
-    // Modal içeriğini buraya ekleyin
+    // Modal işlevselliğini buraya ekleyin
+    const modal = new bootstrap.Modal(document.getElementById('fileUploadModal'));
+    modal.show();
 }
 
 function showFileListModal(employeeIndex) {
     console.log("Dosya Listesi Modalı gösteriliyor:", employeeIndex);
-    // Modal içeriğini buraya ekleyin
+    // Modal işlevselliğini buraya ekleyin
+    const modal = new bootstrap.Modal(document.getElementById('fileListModal'));
+    modal.show();
 }
 
 // GİRİŞ İŞLEMLERİ
@@ -148,6 +197,18 @@ async function loadWorkplaces() {
     try {
         const workplaces = await appState.db.getWorkplaces();
         console.log("İşyerleri yüklendi:", workplaces);
+        
+        // Örnek işyeri ekleme (veritabanı boşsa)
+        if (workplaces.length === 0) {
+            await appState.db.addWorkplace({
+                id: '1',
+                name: 'Örnek İşyeri',
+                address: 'Örnek Adres',
+                createdAt: new Date().toISOString()
+            });
+            return loadWorkplaces(); // Yeniden yükle
+        }
+        
         // İşyerlerini görüntüleme kodunu buraya ekleyin
     } catch (error) {
         showError('İşyerleri yüklenirken hata oluştu', 'workplaceError');
@@ -159,7 +220,6 @@ async function loadWorkplaces() {
 async function initializeApp() {
     try {
         // Veritabanı başlat
-        appState.db = new Database();
         await appState.db.initDB();
         
         // Giriş dinleyicilerini ayarla
@@ -182,4 +242,10 @@ async function initializeApp() {
     }
 }
 
-//
+// SAYFA YÜKLENDİĞİNDE
+document.addEventListener('DOMContentLoaded', initializeApp);
+
+// GLOBAL FONKSİYONLAR
+window.showEk2Modal = showEk2Modal;
+window.showFileUploadModal = showFileUploadModal;
+window.showFileListModal = showFileListModal;
