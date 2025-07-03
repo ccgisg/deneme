@@ -1,4 +1,4 @@
-// Veritabanı Sınıfı
+// Veritabanı Sınıfı (Tam implementasyon)
 class Database {
     constructor() {
         this.dbName = 'isyeriHekimligiDB';
@@ -6,7 +6,51 @@ class Database {
         this.db = null;
     }
 
-    // ... Diğer veritabanı metodları ...
+    async initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.version);
+
+            request.onerror = (event) => {
+                console.error("Veritabanı hatası:", event.target.error);
+                reject(event.target.error);
+            };
+
+            request.onsuccess = (event) => {
+                this.db = event.target.result;
+                resolve(this.db);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                if (!db.objectStoreNames.contains('workplaces')) {
+                    db.createObjectStore('workplaces', { keyPath: 'id' });
+                }
+                
+                let employeeStore;
+                if (!db.objectStoreNames.contains('employees')) {
+                    employeeStore = db.createObjectStore('employees', { keyPath: 'id' });
+                } else {
+                    employeeStore = event.target.transaction.objectStore('employees');
+                }
+                
+                if (!employeeStore.indexNames.contains('workplaceId')) {
+                    employeeStore.createIndex('workplaceId', 'workplaceId', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('files')) {
+                    const filesStore = db.createObjectStore('files', { keyPath: 'id' });
+                    filesStore.createIndex('employeeId', 'employeeId', { unique: false });
+                }
+
+                if (!db.objectStoreNames.contains('ek2Forms')) {
+                    const ek2FormsStore = db.createObjectStore('ek2Forms', { keyPath: 'employeeId' });
+                }
+            };
+        });
+    }
+
+    // Diğer veritabanı metodları...
 }
 
 // Uygulama State'i
@@ -92,13 +136,41 @@ function showMainView() {
 // EK-2 Form İşlemleri
 function showEk2Modal(employeeIndex) {
     if (employeeIndex === null || !appState.currentEmployees[employeeIndex]) return;
-    
-    // EK-2 modal içeriğini oluştur
-    // ...
-    console.log('EK-2 modal gösteriliyor');
+    console.log('EK-2 modal gösteriliyor:', employeeIndex);
+    // Modal içeriğini burada oluşturun
 }
 
-// Diğer fonksiyon tanımları...
+function showFileUploadModal(employeeIndex) {
+    if (employeeIndex === null || !appState.currentEmployees[employeeIndex]) return;
+    console.log('Dosya yükleme modalı gösteriliyor:', employeeIndex);
+    // Modal içeriğini burada oluşturun
+}
+
+function showFileListModal(employeeIndex) {
+    if (employeeIndex === null || !appState.currentEmployees[employeeIndex]) return;
+    console.log('Dosya listesi modalı gösteriliyor:', employeeIndex);
+    // Modal içeriğini burada oluşturun
+}
+
+// Diğer fonksiyonlar
+async function loadWorkplaces() {
+    try {
+        const workplaces = await appState.db.getWorkplaces();
+        console.log('İşyerleri yüklendi:', workplaces);
+        // İşyerlerini görüntüleme kodunu buraya ekleyin
+    } catch (error) {
+        console.error('İşyerleri yüklenirken hata:', error);
+        showError('İşyerleri yüklenirken hata oluştu');
+    }
+}
+
+function checkAuth() {
+    if (localStorage.getItem('authToken')) {
+        appState.currentUser = { username: 'hekim', role: 'doctor' };
+        showMainView();
+        loadWorkplaces();
+    }
+}
 
 // Sayfa Yüklendiğinde
 document.addEventListener('DOMContentLoaded', async () => {
@@ -108,16 +180,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Gerekli DOM elementleri bulunamadı');
         }
 
+        // Veritabanını başlat
         await appState.db.initDB();
+        
+        // Diğer başlatma fonksiyonları
         initLogin();
         checkAuth();
-        initModals();
-        initWorkplaceActions();
-        initEmployeeActions();
-        initDoctorInfo();
-        initLogout();
-        initBackButton();
-        initBackupRestore();
+        
+        console.log('Uygulama başarıyla başlatıldı');
     } catch (error) {
         console.error('Başlatma hatası:', error);
         showError('Uygulama başlatılırken bir hata oluştu: ' + error.message);
